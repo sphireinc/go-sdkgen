@@ -1,0 +1,96 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Misc API",
+    "version": "1.0.0"
+  },
+  "basePath": "/api",
+  "schemes": ["http"],
+  "produces": ["application/json"],
+  "consumes": ["application/json"],
+  "paths": {
+    "/connections": {
+      "get": {
+        "summary": "List connections",
+        "parameters": [
+          { "name": "page", "in": "query", "required": false, "type": "integer" },
+          { "name": "pageSize", "in": "query", "required": false, "type": "integer" }
+        ],
+        "responses": {
+          "200": { "description": "OK", "schema": { "$ref": "#/definitions/ConnectionList" } }
+        }
+      },
+      "post": {
+        "summary": "Create connection",
+        "parameters": [
+          { "name": "body", "in": "body", "required": true, "schema": { "$ref": "#/definitions/CreateConnectionRequest" } }
+        ],
+        "responses": {
+          "201": { "description": "Created", "schema": { "$ref": "#/definitions/Connection" } }
+        }
+      }
+    },
+    "/connection/{id}": {
+      "get": {
+        "summary": "Get connection by id",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "OK", "schema": { "$ref": "#/definitions/Connection" } }
+        }
+      }
+    },
+    "/targets/{id}": {
+      "get": {
+        "summary": "Get target by id",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "OK", "schema": { "$ref": "#/definitions/Target" } }
+        }
+      }
+    },
+    "/targets/{targetId}": {
+      "get": {
+        "summary": "Get target by targetId (intentional overlap test)",
+        "parameters": [
+          { "name": "targetId", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": { "description": "OK", "schema": { "$ref": "#/definitions/Target" } }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "ConnectionList": {
+      "type": "object",
+      "properties": {
+        "items": { "type": "array", "items": { "$ref": "#/definitions/Connection" } }
+      }
+    },
+    "CreateConnectionRequest": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "type": { "type": "string" }
+      }
+    },
+    "Connection": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "Target": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string" }
+      }
+    }
+  }
+}

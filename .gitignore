@@ -3,3 +3,4 @@
 /sdk
 *.log
 .DS_Store
+.idea/
