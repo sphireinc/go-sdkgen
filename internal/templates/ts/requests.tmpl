@@ -56,7 +56,7 @@ export const req = async <T = any>(
   config: RequestConfig = {},
   headers: Record<string, string> = {}
 ): Promise<ApiResult<T>> => {
-  const url = `${{{.Cfg.BaseURLVar}}}${endpoint}`;
+  const url = `${{.Cfg.BaseURLVar}}${endpoint}`;
 
   const cfg: RequestConfig = {
     ...config,

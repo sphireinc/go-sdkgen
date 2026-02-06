@@ -36,7 +36,7 @@ export const req = async (
   config = {},
   headers = {}
 ) => {
-  const url = `${{{.Cfg.BaseURLVar}}}${endpoint}`;
+  const url = `${{.Cfg.BaseURLVar}}${endpoint}`;
 
   const cfg = {
     ...config,
