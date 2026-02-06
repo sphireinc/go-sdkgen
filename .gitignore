@@ -1,0 +1,5 @@
+/dist
+/out
+/sdk
+*.log
+.DS_Store
