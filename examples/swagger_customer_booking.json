@@ -1,0 +1,120 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Customer Booking API",
+    "version": "1.0.0"
+  },
+  "basePath": "/v1",
+  "schemes": ["https"],
+  "produces": ["application/json"],
+  "consumes": ["application/json"],
+  "paths": {
+    "/customers": {
+      "get": {
+        "operationId": "listCustomers",
+        "summary": "List customers",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": { "$ref": "#/definitions/CustomerList" }
+          }
+        }
+      }
+    },
+    "/customers/{customerId}": {
+      "get": {
+        "operationId": "getCustomer",
+        "summary": "Get customer by ID",
+        "parameters": [
+          { "name": "customerId", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": { "$ref": "#/definitions/Customer" }
+          }
+        }
+      }
+    },
+    "/customers/{customerId}/bookings": {
+      "get": {
+        "operationId": "listBookings",
+        "summary": "List bookings for customer",
+        "parameters": [
+          { "name": "customerId", "in": "path", "required": true, "type": "string" },
+          { "name": "fromDate", "in": "query", "required": false, "type": "string" },
+          { "name": "toDate", "in": "query", "required": false, "type": "string" }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": { "$ref": "#/definitions/BookingList" }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createBooking",
+        "summary": "Create booking for customer",
+        "parameters": [
+          { "name": "customerId", "in": "path", "required": true, "type": "string" },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": { "$ref": "#/definitions/CreateBookingRequest" }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "schema": { "$ref": "#/definitions/Booking" }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "CustomerList": {
+      "type": "object",
+      "properties": {
+        "customers": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/Customer" }
+        }
+      }
+    },
+    "Customer": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "BookingList": {
+      "type": "object",
+      "properties": {
+        "bookings": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/Booking" }
+        }
+      }
+    },
+    "Booking": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "CreateBookingRequest": {
+      "type": "object",
+      "required": ["date"],
+      "properties": {
+        "date": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    }
+  }
+}

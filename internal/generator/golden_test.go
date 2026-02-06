@@ -16,48 +16,65 @@ func TestGolden_Examples(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name       string
-		input      string
-		outSubdir  string
-		lang       string
-		sdkName    string
-		baseURLVar string
-		authMode   string
-		tokenFn    string
+		name      string
+		input     string
+		outSubdir string
+		lang      string
+		sdkName   string
+		authMode  string
+		tokenFn   string
 	}{
 		{
-			name:      "jobs-ts",
-			input:     filepath.FromSlash("../../examples/swagger_jobs.json"),
-			outSubdir: "jobs-ts",
+			name:      "telephone-ts",
+			input:     filepath.FromSlash("../../examples/swagger_telephone.json"),
+			outSubdir: "telephone-ts",
 			lang:      "ts",
-			sdkName:   "JobEngineSDK",
+			sdkName:   "TelephoneSDK",
 			authMode:  "bearer",
 			tokenFn:   "getToken",
 		},
 		{
-			name:      "jobs-js",
-			input:     filepath.FromSlash("../../examples/swagger_jobs.json"),
-			outSubdir: "jobs-js",
+			name:      "telephone-js",
+			input:     filepath.FromSlash("../../examples/swagger_telephone.json"),
+			outSubdir: "telephone-js",
 			lang:      "js",
-			sdkName:   "JobEngineSDK",
+			sdkName:   "TelephoneSDK",
 			authMode:  "bearer",
 			tokenFn:   "getToken",
 		},
 		{
-			name:      "misc-ts",
-			input:     filepath.FromSlash("../../examples/swagger_misc.json"),
-			outSubdir: "misc-ts",
+			name:      "dog-parlor-ts",
+			input:     filepath.FromSlash("../../examples/swagger_dog_parlor.json"),
+			outSubdir: "dog-parlor-ts",
 			lang:      "ts",
-			sdkName:   "MiscSDK",
+			sdkName:   "DogParlorSDK",
 			authMode:  "bearer",
 			tokenFn:   "getToken",
 		},
 		{
-			name:      "misc-js",
-			input:     filepath.FromSlash("../../examples/swagger_misc.json"),
-			outSubdir: "misc-js",
+			name:      "dog-parlor-js",
+			input:     filepath.FromSlash("../../examples/swagger_dog_parlor.json"),
+			outSubdir: "dog-parlor-js",
 			lang:      "js",
-			sdkName:   "MiscSDK",
+			sdkName:   "DogParlorSDK",
+			authMode:  "bearer",
+			tokenFn:   "getToken",
+		},
+		{
+			name:      "customer-booking-ts",
+			input:     filepath.FromSlash("../../examples/swagger_customer_booking.json"),
+			outSubdir: "customer-booking-ts",
+			lang:      "ts",
+			sdkName:   "CustomerBookingSDK",
+			authMode:  "bearer",
+			tokenFn:   "getToken",
+		},
+		{
+			name:      "customer-booking-js",
+			input:     filepath.FromSlash("../../examples/swagger_customer_booking.json"),
+			outSubdir: "customer-booking-js",
+			lang:      "js",
+			sdkName:   "CustomerBookingSDK",
 			authMode:  "bearer",
 			tokenFn:   "getToken",
 		},

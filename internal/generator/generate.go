@@ -36,6 +36,7 @@ func Generate(cfg Config) error {
 		template string
 		outName  string
 	}{
+		{"package.tmpl", "package.json"},
 		{"routes.tmpl", "routes." + cfg.Lang},
 		{"requests.tmpl", "requests." + cfg.Lang},
 		{"sdk.tmpl", "sdk." + cfg.Lang},

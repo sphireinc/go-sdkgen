@@ -1,0 +1,115 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Dog Grooming Parlor API",
+    "version": "1.0.0"
+  },
+  "basePath": "/api",
+  "schemes": ["http"],
+  "produces": ["application/json"],
+  "consumes": ["application/json"],
+  "paths": {
+    "/dogs": {
+      "get": {
+        "summary": "List dogs",
+        "parameters": [
+          { "name": "breed", "in": "query", "required": false, "type": "string" }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": { "$ref": "#/definitions/DogList" }
+          }
+        }
+      },
+      "post": {
+        "summary": "Register a dog",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": { "$ref": "#/definitions/CreateDogRequest" }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "schema": { "$ref": "#/definitions/Dog" }
+          }
+        }
+      }
+    },
+    "/dogs/{id}": {
+      "get": {
+        "summary": "Get dog by ID",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": { "$ref": "#/definitions/Dog" }
+          }
+        }
+      }
+    },
+    "/dogs/{id}/appointments": {
+      "get": {
+        "summary": "List grooming appointments for dog",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": { "$ref": "#/definitions/AppointmentList" }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "DogList": {
+      "type": "object",
+      "properties": {
+        "dogs": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/Dog" }
+        }
+      }
+    },
+    "Dog": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "breed": { "type": "string" }
+      }
+    },
+    "CreateDogRequest": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "breed": { "type": "string" }
+      }
+    },
+    "AppointmentList": {
+      "type": "object",
+      "properties": {
+        "appointments": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/Appointment" }
+        }
+      }
+    },
+    "Appointment": {
+      "type": "object",
+      "properties": {
+        "date": { "type": "string" },
+        "service": { "type": "string" }
+      }
+    }
+  }
+}

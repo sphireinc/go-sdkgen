@@ -1,0 +1,100 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "Telephone Directory API",
+    "version": "1.0.0"
+  },
+  "basePath": "/api/v1",
+  "schemes": ["https"],
+  "produces": ["application/json"],
+  "consumes": ["application/json"],
+  "paths": {
+    "/phones": {
+      "get": {
+        "operationId": "listPhoneNumbers",
+        "summary": "List phone numbers",
+        "parameters": [
+          { "name": "country", "in": "query", "required": false, "type": "string" },
+          { "name": "active", "in": "query", "required": false, "type": "boolean" }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": { "$ref": "#/definitions/PhoneList" }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPhoneNumber",
+        "summary": "Create a phone number",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": { "$ref": "#/definitions/CreatePhoneRequest" }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "schema": { "$ref": "#/definitions/Phone" }
+          }
+        }
+      }
+    },
+    "/phones/{phoneId}": {
+      "get": {
+        "operationId": "getPhoneNumber",
+        "summary": "Get phone number by ID",
+        "parameters": [
+          { "name": "phoneId", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "schema": { "$ref": "#/definitions/Phone" }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deletePhoneNumber",
+        "summary": "Delete phone number",
+        "parameters": [
+          { "name": "phoneId", "in": "path", "required": true, "type": "string" }
+        ],
+        "responses": {
+          "204": { "description": "No Content" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "PhoneList": {
+      "type": "object",
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/Phone" }
+        }
+      }
+    },
+    "Phone": {
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "number": { "type": "string" },
+        "country": { "type": "string" },
+        "active": { "type": "boolean" }
+      }
+    },
+    "CreatePhoneRequest": {
+      "type": "object",
+      "required": ["number"],
+      "properties": {
+        "number": { "type": "string" },
+        "country": { "type": "string" }
+      }
+    }
+  }
+}

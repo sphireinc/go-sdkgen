@@ -43,6 +43,11 @@ test:
 examples: build
 	./run_examples.sh
 
+.PHONY: smoke
+smoke: golden
+	cd tests/sdk-smoke && npm install
+	cd tests/sdk-smoke && npm run test
+
 # Golden workflow:
 #   make golden   -> overwrites testdata/golden/*
 .PHONY: golden
@@ -50,11 +55,14 @@ golden: build
 	@echo "Rebuilding golden files..."
 	@rm -rf ./internal/generator/testdata/golden
 	@mkdir -p ./internal/generator/testdata/golden
-	@./$(BINARY) --input ./examples/swagger_jobs.json --out ./internal/generator/testdata/golden/jobs-ts --lang ts --name JobEngineSDK
-	@./$(BINARY) --input ./examples/swagger_jobs.json --out ./internal/generator/testdata/golden/jobs-js --lang js --name JobEngineSDK
-	@./$(BINARY) --input ./examples/swagger_misc.json --out ./internal/generator/testdata/golden/misc-ts --lang ts --name MiscSDK
-	@./$(BINARY) --input ./examples/swagger_misc.json --out ./internal/generator/testdata/golden/misc-js --lang js --name MiscSDK
+	@./$(BINARY) --input ./examples/swagger_telephone.json --out ./internal/generator/testdata/golden/telephone-ts --lang ts --name TelephoneSDK
+	@./$(BINARY) --input ./examples/swagger_telephone.json --out ./internal/generator/testdata/golden/telephone-js --lang js --name TelephoneSDK
+	@./$(BINARY) --input ./examples/swagger_dog_parlor.json --out ./internal/generator/testdata/golden/dog-parlor-ts --lang ts --name DogParlorSDK
+	@./$(BINARY) --input ./examples/swagger_dog_parlor.json --out ./internal/generator/testdata/golden/dog-parlor-js --lang js --name DogParlorSDK
+	@./$(BINARY) --input ./examples/swagger_customer_booking.json --out ./internal/generator/testdata/golden/customer-booking-ts --lang ts --name CustomerBookingSDK
+	@./$(BINARY) --input ./examples/swagger_customer_booking.json --out ./internal/generator/testdata/golden/customer-booking-js --lang js --name CustomerBookingSDK
+
 	@echo "✅ Golden files updated."
 
 .PHONY: ci
-ci: fmt-check test
+ci: fmt fmt-check test golden smoke

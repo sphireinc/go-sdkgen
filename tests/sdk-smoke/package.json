@@ -1,0 +1,14 @@
+{
+  "name": "sdk-smoke",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "../../internal/generator/testdata/golden/*-js"
+  ],
+  "scripts": {
+    "test": "node --test ./smoke-js.test.mjs"
+  },
+  "devDependencies": {
+    "axios-mock-adapter": "^1.22.0"
+  }
+}
