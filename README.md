@@ -1,3 +1,5 @@
+[![CI](https://github.com/sphireinc/go-sdkgen/actions/workflows/ci.yml/badge.svg)](https://github.com/sphireinc/go-sdkgen/actions/workflows/ci.yml)
+
 # go-sdkgen (Go) → TS/JS REST SDK generator
 
 Generates a small axios-based REST SDK from a Swagger (OpenAPI v2) `swagger.json`.
