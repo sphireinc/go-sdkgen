@@ -5,3 +5,5 @@
 .DS_Store
 .idea/
 sdkgen
+sdk-example-output/
+internal/generator/testdata/
