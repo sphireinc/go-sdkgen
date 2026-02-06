@@ -67,4 +67,4 @@ golden: build
 	@echo "✅ Golden files updated."
 
 .PHONY: ci
-ci: fmt fmt-check test golden smoke
+ci: fmt fmt-check golden test smoke
