@@ -9,6 +9,7 @@ import { ApiResult, req, RequestConfig } from "./requests";
 
 export type QueryValue = string | number | boolean | null | undefined;
 export type Query = Record<string, QueryValue>;
+export type PathParams = Record<string, string | number>;
 
 const toQueryString = (query?: Query): string => {
   if (!query) return "";
@@ -27,26 +28,20 @@ const toQueryString = (query?: Query): string => {
  * {{ if .Summary }}{{ .Summary }}{{ else }}{{ .Name }}{{ end }}
  */
 export const {{ .Name }} = async (
-  {{- if gt (len .PathParams) 0 -}}
-  path: { {{- range $i, $p := .PathParams }}{{ if $i }}, {{ end }}{{ $p.Name }}: string | number{{ end }} },
-  {{- end -}}
-  {{- if gt (len .QueryParams) 0 -}}
-  query?: { {{- range $i, $p := .QueryParams }}{{ if $i }}, {{ end }}{{ $p.Name }}?: QueryValue{{ end }} },
-  {{- end -}}
-  {{- if .HasBody -}}
+  path?: PathParams,
+  query?: Query,
   body?: unknown,
-  {{- end -}}
   config: RequestConfig = {}
 ): Promise<ApiResult> => {
   const { method, uri } = Endpoints().{{ .Name }};
 
   {{- if gt (len .PathParams) 0 }}
-  const finalUri = AttachEndpointVariable(uri, path);
+  const finalUri = AttachEndpointVariable(uri, path ?? {});
   {{- else }}
   const finalUri = uri;
   {{- end }}
 
-  const withQuery = finalUri + toQueryString({{ if gt (len .QueryParams) 0 }}query{{ else }}undefined{{ end }});
+  const withQuery = finalUri + toQueryString(query);
 
   {{- if .HasBody }}
   return req(method, withQuery, body, config);

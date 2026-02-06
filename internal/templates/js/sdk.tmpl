@@ -24,24 +24,21 @@ const toQueryString = (query) => {
  * {{ if .Summary }}{{ .Summary }}{{ else }}{{ .Name }}{{ end }}
  */
 export const {{ .Name }} = async (
-  {{- if gt (len .PathParams) 0 }}path,{{ end -}}
-  {{- if gt (len .QueryParams) 0 }}query,{{ end -}}
-  {{- if .HasBody }}body,{{ end -}}
+  path = undefined,
+  query = undefined,
+  body = undefined,
   config = {}
 ) => {
   const { method, uri } = Endpoints().{{ .Name }};
 
   const finalUri =
     {{- if gt (len .PathParams) 0 }}
-    AttachEndpointVariable(uri, path);
+    AttachEndpointVariable(uri, path || {});
     {{- else }}
     uri;
     {{- end }}
 
-  const withQuery =
-    finalUri + toQueryString(
-      {{- if gt (len .QueryParams) 0 }}query{{ else }}undefined{{ end }}
-    );
+  const withQuery = finalUri + toQueryString(query);
 
   return req(
     method,

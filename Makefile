@@ -46,6 +46,8 @@ examples: build
 .PHONY: smoke
 smoke: golden
 	cd tests/sdk-smoke && npm install
+	@rm -rf internal/generator/testdata/golden/node_modules
+	@ln -sfn "$$(pwd)/tests/sdk-smoke/node_modules" internal/generator/testdata/golden/node_modules
 	cd tests/sdk-smoke && npm run test
 
 # Golden workflow:
