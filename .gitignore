@@ -7,3 +7,4 @@
 sdkgen
 sdk-example-output/
 internal/generator/testdata/
+node_modules/
