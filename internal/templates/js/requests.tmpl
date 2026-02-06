@@ -5,6 +5,7 @@
  */
 
 import axios from "axios";
+export { axios };
 
 /**
  * SDK runtime configuration
@@ -36,7 +37,13 @@ export const req = async (
   config = {},
   headers = {}
 ) => {
-  const url = `${{.Cfg.BaseURLVar}}${endpoint}`;
+  const url = {{.Cfg.BaseURLVar}} + endpoint;
+
+  // helpful for smoke tests / debugging
+  if (config && config.__debug) {
+    // eslint-disable-next-line no-console
+    console.log("SDK REQ", method, url);
+  }
 
   const cfg = {
     ...config,

@@ -4,7 +4,9 @@
  * Do not edit manually.
  */
 
-import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
+import axios from "axios";
+import { AxiosRequestConfig, AxiosResponse } from "axios";
+export { axios };
 
 export type HttpMethod =
   | "GET"
@@ -56,7 +58,7 @@ export const req = async <T = any>(
   config: RequestConfig = {},
   headers: Record<string, string> = {}
 ): Promise<ApiResult<T>> => {
-  const url = `${{.Cfg.BaseURLVar}}${endpoint}`;
+  const url = {{.Cfg.BaseURLVar}} + endpoint;
 
   const cfg: RequestConfig = {
     ...config,

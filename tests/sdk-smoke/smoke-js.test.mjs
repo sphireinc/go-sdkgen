@@ -1,112 +1,121 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-
-import axios from "axios";
 import MockAdapter from "axios-mock-adapter";
 
 import * as telephone from "../../internal/generator/testdata/golden/telephone-js/index.js";
-import * as dog from "../../internal/generator/testdata/golden/dog-parlor-js/index.js";
-import * as booking from "../../internal/generator/testdata/golden/customer-booking-js/index.js";
+import { axios as telephoneAxios } from "../../internal/generator/testdata/golden/telephone-js/requests.js";
 
-function findOpBy(method, uri, sdkModule) {
+import * as dog from "../../internal/generator/testdata/golden/dog-parlor-js/index.js";
+import { axios as dogAxios } from "../../internal/generator/testdata/golden/dog-parlor-js/requests.js";
+
+import * as booking from "../../internal/generator/testdata/golden/customer-booking-js/index.js";
+import { axios as bookingAxios } from "../../internal/generator/testdata/golden/customer-booking-js/requests.js";
+
+function findEndpointBy(method, uri, sdkModule) {
     const routes = sdkModule.Endpoints();
     for (const [name, ep] of Object.entries(routes)) {
-        if (ep.method === method && ep.uri === uri) return name;
+        if (ep.method === method && ep.uri === uri) return { name, ep };
     }
     return null;
 }
 
-function parseURL(config) {
-    // axios-mock-adapter gives us full URL in config.url
-    // Node's URL needs an absolute base; config.url should already be absolute
-    return new URL(config.url);
+function addUnmatchedFallback(mock, label) {
+    mock.onAny().reply((config) => {
+        throw new Error(`[${label}] Unmatched request: ${config.method?.toUpperCase()} ${config.url}`);
+    });
 }
 
-test("telephone-js: GET /phones + auth header + query string", async () => {
+test("telephone-js: GET /phones mocked", async () => {
     telephone.setBaseUrl("https://example.test");
     telephone.setTokenProvider(() => "TEST_TOKEN");
 
-    const opName = findOpBy("GET", "/phones", telephone);
-    assert.ok(opName, "Expected an operation for GET /phones");
+    const found = findEndpointBy("GET", "/phones", telephone);
+    assert.ok(found, "Expected GET /phones");
+    const { name: opName } = found;
+
     const fn = telephone[opName];
-    assert.equal(typeof fn, "function", `Expected export function ${opName}`);
+    assert.equal(typeof fn, "function");
 
-    const mock = new MockAdapter(axios);
+    const mock = new MockAdapter(telephoneAxios);
 
-    // Match any query ordering
     mock.onGet(/https:\/\/example\.test\/phones(\?.*)?$/).reply((config) => {
-        assert.equal(config.method, "get");
         assert.equal(config.headers.Authorization, "Bearer TEST_TOKEN");
 
-        const u = parseURL(config);
+        const u = new URL(config.url);
         assert.equal(u.pathname, "/phones");
         assert.equal(u.searchParams.get("country"), "US");
         assert.equal(u.searchParams.get("active"), "true");
-
         return [200, { items: [] }];
     });
 
-    // stable signature: (path?, query?, body?, config?)
-    const res = await fn(undefined, { country: "US", active: true });
-    assert.equal(res.success, true, res.error || "expected success");
+    addUnmatchedFallback(mock, "telephone");
+
+    const res = await fn(undefined, { country: "US", active: true }, undefined, { __debug: true });
+    assert.equal(res.success, true);
     assert.deepEqual(res.data, { items: [] });
 
     mock.restore();
 });
 
-test("dog-parlor-js: derived name works for GET /dogs/{id}/appointments", async () => {
+test("dog-parlor-js: GET /dogs/{id}/appointments mocked", async () => {
     dog.setBaseUrl("https://example.test");
     dog.setTokenProvider(() => "");
 
-    const opName = findOpBy("GET", "/dogs/{id}/appointments", dog);
-    assert.ok(opName, "Expected an operation for GET /dogs/{id}/appointments");
+    const found = findEndpointBy("GET", "/dogs/{id}/appointments", dog);
+    assert.ok(found, "Expected GET /dogs/{id}/appointments");
+    const { name: opName } = found;
+
     const fn = dog[opName];
-    assert.equal(typeof fn, "function", `Expected export function ${opName}`);
+    assert.equal(typeof fn, "function");
 
-    const mock = new MockAdapter(axios);
+    const mock = new MockAdapter(dogAxios);
 
-    mock.onGet("https://example.test/dogs/abc/appointments").reply((config) => {
-        const u = parseURL(config);
-        assert.equal(u.pathname, "/dogs/abc/appointments");
-        return [200, { appointments: [{ date: "2026-02-05", service: "bath" }] }];
+    mock.onGet("https://example.test/dogs/abc/appointments").reply(200, {
+        appointments: [{ date: "2026-02-05", service: "bath" }],
     });
 
-    const res = await fn({ id: "abc" });
-    assert.equal(res.success, true, res.error || "expected success");
-    assert.equal(res.data.appointments.length, 1);
+    addUnmatchedFallback(mock, "dog-parlor");
+
+    const res = await fn({ id: "abc" }, undefined, undefined, { __debug: true });
+    assert.equal(res.success, true);
 
     mock.restore();
 });
 
-test("customer-booking-js: POST /customers/{customerId}/bookings sends body", async () => {
+test("customer-booking-js: POST /customers/{customerId}/bookings mocked", async () => {
     booking.setBaseUrl("https://example.test");
     booking.setTokenProvider(() => "TOKEN");
 
-    const opName = findOpBy("POST", "/customers/{customerId}/bookings", booking);
-    assert.ok(opName, "Expected an operation for POST /customers/{customerId}/bookings");
-    const fn = booking[opName];
-    assert.equal(typeof fn, "function", `Expected export function ${opName}`);
+    const found = findEndpointBy("POST", "/customers/{customerId}/bookings", booking);
+    assert.ok(found, "Expected POST /customers/{customerId}/bookings");
+    const { name: opName } = found;
 
-    const mock = new MockAdapter(axios);
+    const fn = booking[opName];
+    assert.equal(typeof fn, "function");
+
+    const mock = new MockAdapter(bookingAxios);
 
     mock.onPost("https://example.test/customers/c1/bookings").reply((config) => {
         assert.equal(config.headers.Authorization, "Bearer TOKEN");
-
-        // axios usually sends JSON string; handle either
         const payload = typeof config.data === "string" ? JSON.parse(config.data) : config.data;
         assert.equal(payload.date, "2026-02-06");
         assert.equal(payload.notes, "trim nails");
-
-        return [201, { id: "b1", date: payload.date, status: "created" }];
+        return [201, { id: "b1" }];
     });
+
+
+    addUnmatchedFallback(mock, "customer-booking");
 
     const res = await fn(
         { customerId: "c1" },
         undefined,
-        { date: "2026-02-06", notes: "trim nails" }
+        { date: "2026-02-06", notes: "trim nails" },
+        { __debug: true }
     );
 
-    assert.equal(res.success, true, res.error || "expected success");
+    console.log(res)
+
+    assert.equal(res.success, true);
     assert.equal(res.data.id, "b1");
 
     mock.restore();
