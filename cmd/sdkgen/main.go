@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/sphireinc/go-sdkgen/internal/generator"
 	"os"
 	"path/filepath"
+
+	"github.com/sphireinc/go-sdkgen/internal/generator"
 )
 
 func main() {
@@ -20,7 +21,10 @@ func main() {
 	)
 	flag.Parse()
 	if *in == "" {
-		fmt.Fprintln(os.Stderr, "missing --input")
+		_, err := fmt.Fprintln(os.Stderr, "missing --input")
+		if err != nil {
+			return
+		}
 		os.Exit(2)
 	}
 	absOut, _ := filepath.Abs(*out)
@@ -36,7 +40,10 @@ func main() {
 	}
 
 	if err := generator.Generate(cfg); err != nil {
-		fmt.Fprintln(os.Stderr, "generate failed:", err)
+		_, err := fmt.Fprintln(os.Stderr, "generate failed:", err)
+		if err != nil {
+			return
+		}
 		os.Exit(1)
 	}
 
