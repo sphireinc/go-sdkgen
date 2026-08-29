@@ -10,7 +10,7 @@ import { ApiResult, req, RequestConfig } from "./requests.js";
 import * as GeneratedTypes from "./types.js";
 {{- end }}
 
-export type QueryValue = string | number | boolean | null | undefined;
+export type QueryValue = string | number | boolean | null | undefined | ReadonlyArray<string | number | boolean>;
 export type Query = Record<string, QueryValue>;
 export type PathParams = Record<string, string | number>;
 {{- $model := .Model }}
