@@ -1,0 +1,48 @@
+openapi: 3.1.0
+info:
+  title: Constants API
+  version: 1.0.0
+paths:
+  /constants:
+    get:
+      operationId: getConstants
+      responses:
+        '200':
+          description: Constant-bearing response
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ConstHolder' }
+components:
+  schemas:
+    ApiInfo:
+      type: object
+      required: [name, version]
+      properties:
+        name: { type: string, const: 'Example API', description: Product name }
+        version: { type: string, const: v1, title: Contract version }
+    ConstHolder:
+      type: object
+      required: [publishedStatus, reportable, revision, nullableValue, nested, values, flags]
+      properties:
+        publishedStatus: { type: string, const: published, default: published }
+        reportable: { type: boolean, const: true }
+        revision: { type: integer, const: 1 }
+        nullableValue: { const: null }
+        nested:
+          type: object
+          required: [kind]
+          properties:
+            kind: { type: string, const: nested }
+        values:
+          type: array
+          items: { type: string, const: item }
+        flags:
+          type: object
+          additionalProperties: { type: boolean, const: false }
+    ComposedInfo:
+      allOf:
+        - $ref: '#/components/schemas/ApiInfo'
+        - type: object
+          required: [kind]
+          properties:
+            kind: { type: string, const: composed }

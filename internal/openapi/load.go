@@ -4,10 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/getkin/kin-openapi/openapi2"
 	"github.com/getkin/kin-openapi/openapi3"
+	"gopkg.in/yaml.v3"
 )
 
 func LoadSwaggerV2(path string) (*openapi2.T, error) {
@@ -34,119 +34,145 @@ func LoadOpenAPI3(path string, allowExternalRefs bool) (*openapi3.T, error) {
 	if len(spec.OpenAPI) < 3 || spec.OpenAPI[0] != '3' {
 		return nil, fmt.Errorf("unsupported OpenAPI version %q: expected 3.x", spec.OpenAPI)
 	}
-	// kin-openapi v0.133 models most 3.1 constructs but its validator still
-	// rejects the valid JSON Schema 2020-12 `null` type. Temporarily remove
-	// only that union member while running the normal validator, then restore
-	// the parsed schema. This preserves malformed-document validation.
-	if strings.HasPrefix(spec.OpenAPI, "3.1") {
-		restore := stripNullableTypes(spec)
-		err := spec.Validate(loader.Context)
-		restore()
-		if err != nil {
-			return nil, fmt.Errorf("invalid openapi document: %w", err)
-		}
-	} else if err := spec.Validate(loader.Context); err != nil {
+	if err := spec.Validate(loader.Context); err != nil {
 		return nil, fmt.Errorf("invalid openapi document: %w", err)
 	}
+	// The Go representation intentionally uses nil for both an absent const
+	// and a JSON null const. Preserve the distinction in Extensions for the
+	// emitter without weakening the parser's validation.
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+	var raw map[string]any
+	if err := yaml.Unmarshal(data, &raw); err != nil {
+		return nil, fmt.Errorf("invalid openapi document: %w", err)
+	}
+	markNullConsts(spec, raw)
 	return spec, nil
 }
 
-func stripNullableTypes(doc *openapi3.T) func() {
-	type change struct {
-		schema *openapi3.Schema
-		types  openapi3.Types
-	}
-	var changes []change
-	seen := map[*openapi3.Schema]bool{}
-	var visit func(*openapi3.Schema)
-	visit = func(s *openapi3.Schema) {
-		if s == nil || seen[s] {
+func markNullConsts(doc *openapi3.T, raw map[string]any) {
+	var visit func(any, *openapi3.Schema)
+	visit = func(value any, parsed *openapi3.Schema) {
+		m, ok := value.(map[string]any)
+		if !ok || parsed == nil {
 			return
 		}
-		seen[s] = true
-		if s.Type != nil {
-			kept := make(openapi3.Types, 0, len(*s.Type))
-			for _, typ := range *s.Type {
-				if typ != "null" {
-					kept = append(kept, typ)
+		if v, exists := m["const"]; exists && v == nil {
+			if parsed.Extensions == nil {
+				parsed.Extensions = map[string]any{}
+			}
+			parsed.Extensions["x-sdkgen-null-const"] = true
+		}
+		if props, ok := m["properties"].(map[string]any); ok {
+			for name, child := range props {
+				if ref := parsed.Properties[name]; ref != nil {
+					visit(child, ref.Value)
 				}
 			}
-			if len(kept) != len(*s.Type) {
-				changes = append(changes, change{s, *s.Type})
-				s.Type = &kept
-			}
 		}
-		for _, r := range s.OneOf {
-			if r != nil {
-				visit(r.Value)
-			}
+		if child, ok := m["items"]; ok && parsed.Items != nil {
+			visit(child, parsed.Items.Value)
 		}
-		for _, r := range s.AnyOf {
-			if r != nil {
-				visit(r.Value)
-			}
-		}
-		for _, r := range s.AllOf {
-			if r != nil {
-				visit(r.Value)
-			}
-		}
-		if s.Items != nil {
-			visit(s.Items.Value)
-		}
-		for _, r := range s.Properties {
-			if r != nil {
-				visit(r.Value)
-			}
-		}
-		if s.AdditionalProperties.Schema != nil {
-			visit(s.AdditionalProperties.Schema.Value)
-		}
-	}
-	visitContent := func(c openapi3.Content) {
-		for _, m := range c {
-			if m != nil && m.Schema != nil {
-				visit(m.Schema.Value)
-			}
-		}
-	}
-	if doc.Components != nil {
-		for _, r := range doc.Components.Schemas {
-			if r != nil {
-				visit(r.Value)
-			}
-		}
-	}
-	if doc.Paths != nil {
-		for _, item := range doc.Paths.Map() {
-			if item == nil {
-				continue
-			}
-			for _, op := range item.Operations() {
-				if op == nil {
-					continue
+		for _, keyword := range []string{"oneOf", "anyOf", "allOf", "prefixItems"} {
+			if list, ok := m[keyword].([]any); ok {
+				var refs openapi3.SchemaRefs
+				switch keyword {
+				case "oneOf":
+					refs = parsed.OneOf
+				case "anyOf":
+					refs = parsed.AnyOf
+				case "allOf":
+					refs = parsed.AllOf
+				default:
+					refs = parsed.PrefixItems
 				}
-				for _, p := range op.Parameters {
-					if p != nil && p.Value != nil && p.Value.Schema != nil {
-						visit(p.Value.Schema.Value)
+				for i, child := range list {
+					if i < len(refs) && refs[i] != nil {
+						visit(child, refs[i].Value)
 					}
 				}
-				if op.RequestBody != nil && op.RequestBody.Value != nil {
-					visitContent(op.RequestBody.Value.Content)
+			}
+		}
+		if child, ok := m["additionalProperties"]; ok && parsed.AdditionalProperties.Schema != nil {
+			visit(child, parsed.AdditionalProperties.Schema.Value)
+		}
+		if defs, ok := m["$defs"].(map[string]any); ok {
+			for name, child := range defs {
+				if ref := parsed.Defs[name]; ref != nil {
+					visit(child, ref.Value)
 				}
-				if op.Responses != nil {
-					for _, r := range op.Responses.Map() {
-						if r != nil && r.Value != nil {
-							visitContent(r.Value.Content)
+			}
+		}
+	}
+	if components, ok := raw["components"].(map[string]any); ok {
+		if schemas, ok := components["schemas"].(map[string]any); ok && doc.Components != nil {
+			for name, value := range schemas {
+				if ref := doc.Components.Schemas[name]; ref != nil {
+					visit(value, ref.Value)
+				}
+			}
+		}
+	}
+	if paths, ok := raw["paths"].(map[string]any); ok && doc.Paths != nil {
+		for path, rawItem := range paths {
+			item := doc.Paths.Value(path)
+			rawItemMap, ok := rawItem.(map[string]any)
+			if !ok || item == nil {
+				continue
+			}
+			for method, operation := range item.Operations() {
+				rawOperation, ok := rawItemMap[method].(map[string]any)
+				if !ok || operation == nil {
+					continue
+				}
+				if rawParams, ok := rawOperation["parameters"].([]any); ok {
+					for i, rawParam := range rawParams {
+						if i < len(operation.Parameters) && operation.Parameters[i] != nil && operation.Parameters[i].Value != nil && operation.Parameters[i].Value.Schema != nil {
+							if p, ok := rawParam.(map[string]any); ok {
+								if schema, ok := p["schema"]; ok {
+									visit(schema, operation.Parameters[i].Value.Schema.Value)
+								}
+							}
+						}
+					}
+				}
+				if rawBody, ok := rawOperation["requestBody"].(map[string]any); ok && operation.RequestBody != nil && operation.RequestBody.Value != nil {
+					if content, ok := rawBody["content"].(map[string]any); ok {
+						for media, rawMedia := range content {
+							if parsed := operation.RequestBody.Value.Content[media]; parsed != nil && parsed.Schema != nil {
+								if mediaMap, ok := rawMedia.(map[string]any); ok {
+									if schema, ok := mediaMap["schema"]; ok {
+										visit(schema, parsed.Schema.Value)
+									}
+								}
+							}
+						}
+					}
+				}
+				if rawResponses, ok := rawOperation["responses"].(map[string]any); ok && operation.Responses != nil {
+					for code, rawResponse := range rawResponses {
+						parsedResponse := operation.Responses.Value(code)
+						if parsedResponse == nil || parsedResponse.Value == nil {
+							continue
+						}
+						if responseMap, ok := rawResponse.(map[string]any); ok {
+							if content, ok := responseMap["content"].(map[string]any); ok {
+								for media, rawMedia := range content {
+									if parsed := parsedResponse.Value.Content[media]; parsed != nil && parsed.Schema != nil {
+										if mediaMap, ok := rawMedia.(map[string]any); ok {
+											if schema, ok := mediaMap["schema"]; ok {
+												visit(schema, parsed.Schema.Value)
+											}
+										}
+									}
+								}
+							}
 						}
 					}
 				}
 			}
-		}
-	}
-	return func() {
-		for _, c := range changes {
-			c.schema.Type = &c.types
 		}
 	}
 }

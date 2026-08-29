@@ -1,6 +1,7 @@
 package openapi
 
 import (
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
 	"regexp"
@@ -257,6 +258,14 @@ func schemaTypeScript(s *openapi3.Schema, names map[*openapi3.Schema]string) str
 	if s == nil {
 		return "unknown"
 	}
+	if s.Extensions != nil {
+		if _, ok := s.Extensions["x-sdkgen-null-const"]; ok {
+			return "null"
+		}
+	}
+	if s.Const != nil {
+		return constTypeScript(s.Const)
+	}
 	if n := names[s]; n != "" {
 		return n
 	}
@@ -279,25 +288,27 @@ func schemaTypeScript(s *openapi3.Schema, names map[*openapi3.Schema]string) str
 		return strings.Join(ts, " & ")
 	}
 	if s.Type != nil {
+		hasNull := s.Nullable || s.Type.IncludesNull()
 		for _, t := range *s.Type {
 			if t == "null" {
-				return "null"
+				hasNull = true
+				continue
 			}
 			switch t {
 			case "string":
 				if len(s.Enum) > 0 {
-					return strings.Join(enumValues(s.Enum), " | ")
+					return nullableType(strings.Join(enumValues(s.Enum), " | "), hasNull)
 				}
-				return "string"
+				return nullableType("string", hasNull)
 			case "integer", "number":
-				return "number"
+				return nullableType("number", hasNull)
 			case "boolean":
-				return "boolean"
+				return nullableType("boolean", hasNull)
 			case "array":
 				if s.Items != nil {
-					return "Array<" + schemaTypeScript(s.Items.Value, names) + ">"
+					return nullableType("Array<"+schemaTypeScript(s.Items.Value, names)+">", hasNull)
 				}
-				return "unknown[]"
+				return nullableType("unknown[]", hasNull)
 			case "object":
 				fields := []string{}
 				for _, k := range sortedKeys(s.Properties) {
@@ -316,15 +327,33 @@ func schemaTypeScript(s *openapi3.Schema, names map[*openapi3.Schema]string) str
 				}
 				if len(fields) == 0 {
 					if s.AdditionalProperties.Schema != nil {
-						return "Record<string, " + schemaTypeScript(s.AdditionalProperties.Schema.Value, names) + ">"
+						return nullableType("Record<string, "+schemaTypeScript(s.AdditionalProperties.Schema.Value, names)+">", hasNull)
 					}
-					return "Record<string, unknown>"
+					return nullableType("Record<string, unknown>", hasNull)
 				}
-				return "{ " + strings.Join(fields, "; ") + " }"
+				return nullableType("{ "+strings.Join(fields, "; ")+" }", hasNull)
 			}
+		}
+		if hasNull {
+			return "null"
 		}
 	}
 	return "unknown"
+}
+
+func nullableType(base string, nullable bool) string {
+	if nullable {
+		return base + " | null"
+	}
+	return base
+}
+
+func constTypeScript(value any) string {
+	b, err := json.Marshal(value)
+	if err != nil {
+		return "unknown"
+	}
+	return string(b)
 }
 func enumValues(v []any) []string {
 	out := []string{}

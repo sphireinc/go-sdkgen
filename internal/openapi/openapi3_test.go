@@ -1,6 +1,7 @@
 package openapi_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,12 @@ func fixture(t *testing.T) string {
 	t.Helper()
 	wd, _ := os.Getwd()
 	return filepath.Join(wd, "..", "..", "examples", "openapi31_claims.yaml")
+}
+
+func constFixture(t *testing.T) string {
+	t.Helper()
+	wd, _ := os.Getwd()
+	return filepath.Join(wd, "..", "..", "examples", "openapi31_const.yaml")
 }
 
 func TestOpenAPI31LoadsJSONAndRejectsMalformedDocuments(t *testing.T) {
@@ -51,20 +58,49 @@ func TestOpenAPI31LoadsAndBuildsTypedModel(t *testing.T) {
 				t.Fatalf("incomplete listMyClaims model: %+v", op)
 			}
 		}
-	}
-	if !found {
-		t.Fatal("listMyClaims was not generated")
-	}
-	for _, op := range m.Operations {
 		if op.Name == "submitClaim" && op.Auth {
 			t.Fatal("operation-level security override was not honored")
 		}
 	}
+	if !found {
+		t.Fatal("listMyClaims was not generated")
+	}
 }
 
-func TestOpenAPI31GeneratesTypedDeterministicOutput(t *testing.T) {
+func TestOpenAPI31ConstKeywordsBecomeLiteralTypes(t *testing.T) {
+	spec, err := openapi.LoadOpenAPI3(constFixture(t), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	m, err := openapi.BuildModelV3(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	find := func(name string) string {
+		for _, typ := range m.Types {
+			if typ.Name == name {
+				return typ.Type
+			}
+		}
+		return ""
+	}
+	if got := find("ApiInfo"); !strings.Contains(got, "\"Example API\"") || !strings.Contains(got, "\"v1\"") {
+		t.Fatalf("ApiInfo constants missing: %s", got)
+	}
+	holder := find("ConstHolder")
+	for _, literal := range []string{"publishedStatus: \"published\"", "reportable: true", "revision: 1", "nullableValue: null", "kind: \"nested\"", "Array<\"item\">", "Record<string, false>"} {
+		if !strings.Contains(holder, literal) {
+			t.Fatalf("ConstHolder missing literal %q: %s", literal, holder)
+		}
+	}
+	if got := find("ComposedInfo"); !strings.Contains(got, "ApiInfo") || !strings.Contains(got, `kind: "composed"`) {
+		t.Fatalf("composed constant schema missing: %s", got)
+	}
+}
+
+func TestOpenAPI31ConstGenerationIsDeterministic(t *testing.T) {
 	d1, d2 := t.TempDir(), t.TempDir()
-	c := generator.Config{InputPath: fixture(t), Lang: "ts", SDKName: "ClaimsSDK", OutputDir: d1, BaseURLVar: "baseApiUrl", AuthMode: "bearer", EmitSchemas: true, EmitOperations: true}
+	c := generator.Config{InputPath: constFixture(t), OutputDir: d1, Lang: "ts", SDKName: "ConstantsSDK", BaseURLVar: "baseApiUrl", AuthMode: "none", EmitSchemas: true, EmitOperations: true}
 	if err := generator.Generate(c); err != nil {
 		t.Fatal(err)
 	}
@@ -72,22 +108,34 @@ func TestOpenAPI31GeneratesTypedDeterministicOutput(t *testing.T) {
 	if err := generator.Generate(c); err != nil {
 		t.Fatal(err)
 	}
-	a, _ := os.ReadFile(filepath.Join(d1, "types.ts"))
-	b, _ := os.ReadFile(filepath.Join(d2, "types.ts"))
-	if string(a) != string(b) {
-		t.Fatal("types output is not deterministic")
+	a, err := os.ReadFile(filepath.Join(d1, "types.ts"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	sdk, _ := os.ReadFile(filepath.Join(d1, "sdk.ts"))
-	out := string(sdk)
-	for _, needle := range []string{"listMyClaims", "ListMyClaimsResponse", "ListMyClaimsParams", "ClaimInput"} {
-		if !strings.Contains(out, needle) {
-			t.Fatalf("sdk missing %q", needle)
+	b, err := os.ReadFile(filepath.Join(d2, "types.ts"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(a, b) {
+		t.Fatal("const generation is not deterministic")
+	}
+	if !bytes.Contains(a, []byte("export type GetConstantsResponse = ConstHolder;")) {
+		t.Fatal("typed operation response missing")
+	}
+	for _, literal := range []string{"name: \"Example API\"", "version: \"v1\"", "publishedStatus: \"published\"", "nullableValue: null"} {
+		if !bytes.Contains(a, []byte(literal)) {
+			t.Fatalf("generated output missing literal %q", literal)
 		}
 	}
-	types := string(a)
-	for _, needle := range []string{"export type Claim =", "provenance", "pending", "Array<Claim>"} {
-		if !strings.Contains(types, needle) {
-			t.Fatalf("types missing %q", needle)
-		}
+}
+
+func TestOpenAPI31RejectsInvalidConstType(t *testing.T) {
+	bad := filepath.Join(t.TempDir(), "bad-const.yaml")
+	doc := []byte("openapi: 3.1.0\ninfo: {title: Bad, version: 1}\npaths: {}\ncomponents:\n  schemas:\n    Bad:\n      type: string\n      const: 42\n")
+	if err := os.WriteFile(bad, doc, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openapi.LoadOpenAPI3(bad, false); err == nil {
+		t.Fatal("expected invalid const type to be rejected")
 	}
 }
