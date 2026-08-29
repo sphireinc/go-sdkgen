@@ -1,8 +1,9 @@
 {
-  "name": "{{.Cfg.SDKName}}-ts",
+  "name": "{{ if .Cfg.PackageName }}{{ .Cfg.PackageName }}{{ else }}{{.Cfg.SDKName}}-ts{{ end }}",
   "private": true,
   "type": "module",
   "main": "./index.ts",
+  "x-generator": "go-sdkgen{{ if .Cfg.GeneratorVersion }}@{{ .Cfg.GeneratorVersion }}{{ end }}",
   "dependencies": {
     "axios": "^1.6.0"
   }

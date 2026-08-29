@@ -19,12 +19,14 @@ export type HttpMethod =
 
 export interface RequestConfig extends AxiosRequestConfig {
   headers?: Record<string, string>;
+  skipAuth?: boolean;
 }
 
-export interface ApiResult<T = any> {
+export interface ApiError { message: string; code?: string; details?: unknown; }
+export interface ApiResult<T = unknown, E = ApiError> {
   success: boolean;
   data?: T;
-  error?: string;
+  error?: E;
   status?: number;
 }
 
@@ -33,6 +35,8 @@ export interface ApiResult<T = any> {
  */
 let {{.Cfg.BaseURLVar}} = "";
 let tokenProvider: (() => string) | null = null;
+let requestIdProvider: (() => string) | null = null;
+let errorNormalizer: ((error: unknown, status?: number) => ApiError) | null = null;
 
 export const setBaseUrl = (baseUrl: string): void => {
   {{.Cfg.BaseURLVar}} = String(baseUrl || "").replace(/\/+$/, "");
@@ -40,6 +44,14 @@ export const setBaseUrl = (baseUrl: string): void => {
 
 export const setTokenProvider = (fn: (() => string) | null): void => {
   tokenProvider = fn;
+};
+
+export const setRequestIdProvider = (fn: (() => string) | null): void => {
+  requestIdProvider = fn;
+};
+
+export const setErrorNormalizer = (fn: ((error: unknown, status?: number) => ApiError) | null): void => {
+  errorNormalizer = fn;
 };
 
 const getTokenSafe = (): string => {
@@ -67,8 +79,9 @@ export const req = async <T = any>(
       "Content-Type": "application/json",
       ...headers,
       ...(config.headers ?? {}),
+      ...(requestIdProvider?.() ? { "X-Request-ID": requestIdProvider() } : {}),
       {{- if eq .Cfg.AuthMode "bearer" }}
-      ...(getTokenSafe() ? { Authorization: `Bearer ${getTokenSafe()}` } : {}),
+      ...(!config.skipAuth && getTokenSafe() ? { Authorization: `Bearer ${getTokenSafe()}` } : {}),
       {{- end }}
     },
   };
@@ -99,7 +112,7 @@ export const req = async <T = any>(
         res = await axios.options<T>(url, cfg);
         break;
       default:
-        return { success: false, error: `Unsupported method: ${method}` };
+      return { success: false, error: { message: `Unsupported method: ${method}` } };
     }
 
     return { success: true, data: res.data, status: res.status };
@@ -115,6 +128,6 @@ export const req = async <T = any>(
       message = err.message;
     }
 
-    return { success: false, error: message, status };
+    return { success: false, error: errorNormalizer ? errorNormalizer(err, status) : { message }, status };
   }
 };

@@ -4,6 +4,9 @@
  * Do not edit manually.
  */
 
-export * from "./routes";
-export * from "./requests";
-export * from "./sdk";
+export * from "./routes.js";
+export * from "./requests.js";
+export * from "./sdk.js";
+{{- if .Model.Typed }}
+export * from "./types.js";
+{{- end }}

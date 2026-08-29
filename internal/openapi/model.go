@@ -9,28 +9,329 @@ import (
 	"unicode"
 
 	"github.com/getkin/kin-openapi/openapi2"
+	"github.com/getkin/kin-openapi/openapi3"
 )
 
 type Model struct {
 	Title      string
 	BasePath   string
 	Operations []Operation
+	Types      []TypeDef
+	Typed      bool
 }
 
 type Operation struct {
-	Name        string
-	Method      string
-	Path        string
-	PathParams  []Param
-	QueryParams []Param
-	HasBody     bool
-	Summary     string
-	Description string
+	Name          string
+	Method        string
+	Path          string
+	PathParams    []Param
+	QueryParams   []Param
+	HasBody       bool
+	Summary       string
+	Description   string
+	ParamsType    string
+	BodyType      string
+	BodyTypeNamed bool
+	SuccessType   string
+	ErrorType     string
+	Auth          bool
+	HeaderParams  []Param
+	CookieParams  []Param
 }
 
 type Param struct {
 	Name     string
 	Required bool
+	Type     string
+}
+
+type TypeDef struct{ Name, Type string }
+
+// BuildModelV3 builds a deterministic, schema-derived model from OpenAPI 3.x.
+func BuildModelV3(spec *openapi3.T) (Model, error) {
+	if spec == nil || spec.Paths == nil {
+		return Model{}, fmt.Errorf("OpenAPI document has no paths")
+	}
+	title := "API"
+	if spec.Info != nil && strings.TrimSpace(spec.Info.Title) != "" {
+		title = strings.TrimSpace(spec.Info.Title)
+	}
+	m := Model{Title: title, Typed: true}
+	if len(spec.Servers) > 0 && spec.Servers[0] != nil {
+		if u := strings.TrimRight(spec.Servers[0].URL, "/"); u != "" {
+			m.BasePath = u
+		}
+	}
+	typeNames := map[*openapi3.Schema]string{}
+	if spec.Components != nil {
+		names := make([]string, 0, len(spec.Components.Schemas))
+		for n := range spec.Components.Schemas {
+			names = append(names, n)
+		}
+		sort.Strings(names)
+		for _, n := range names {
+			if ref := spec.Components.Schemas[n]; ref != nil && ref.Value != nil {
+				typeNames[ref.Value] = schemaTypeName(n)
+			}
+		}
+		for _, n := range names {
+			ref := spec.Components.Schemas[n]
+			if ref != nil && ref.Value != nil {
+				// Do not resolve the schema being defined to itself; recursive
+				// properties and references to other components still use names.
+				name := typeNames[ref.Value]
+				delete(typeNames, ref.Value)
+				value := schemaTypeScript(ref.Value, typeNames)
+				typeNames[ref.Value] = name
+				m.Types = append(m.Types, TypeDef{Name: name, Type: value})
+			}
+		}
+	}
+	seen := map[string]string{}
+	for _, path := range sortedKeys(spec.Paths.Map()) {
+		item := spec.Paths.Value(path)
+		if item == nil {
+			continue
+		}
+		methods := item.Operations()
+		methodNames := make([]string, 0, len(methods))
+		for method := range methods {
+			methodNames = append(methodNames, method)
+		}
+		sort.Strings(methodNames)
+		for _, method := range methodNames {
+			op := methods[method]
+			if op == nil {
+				continue
+			}
+			name := toCamelCase(sanitizeIdent(op.OperationID))
+			if name == "" {
+				name = toCamelCase(deriveBaseName(strings.ToUpper(method), path))
+			}
+			if _, ok := reservedJS[name]; ok {
+				name += "Op"
+			}
+			key := strings.ToUpper(method) + " " + path
+			if old, ok := seen[name]; ok && old != key {
+				name += "__" + shortHash(key)
+			}
+			seen[name] = key
+			o := Operation{Name: name, Method: strings.ToUpper(method), Path: path, Summary: strings.TrimSpace(op.Summary), Description: strings.TrimSpace(op.Description), Auth: len(spec.Security) > 0}
+			params := append([]*openapi3.ParameterRef{}, item.Parameters...)
+			params = append(params, op.Parameters...)
+			for _, pr := range params {
+				if pr == nil || pr.Value == nil {
+					continue
+				}
+				p := pr.Value
+				typ := schemaTypeScript(refSchema(p.Schema), typeNames)
+				pp := Param{Name: p.Name, Required: p.Required, Type: typ}
+				switch p.In {
+				case "path":
+					o.PathParams = append(o.PathParams, pp)
+				case "query":
+					o.QueryParams = append(o.QueryParams, pp)
+				case "header":
+					o.HeaderParams = append(o.HeaderParams, pp)
+				case "cookie":
+					o.CookieParams = append(o.CookieParams, pp)
+				}
+			}
+			if op.Security != nil {
+				o.Auth = len(*op.Security) > 0
+			}
+			if op.RequestBody != nil && op.RequestBody.Value != nil {
+				o.HasBody = true
+				o.BodyType = contentType(op.RequestBody.Value.Content, typeNames)
+				for _, media := range op.RequestBody.Value.Content {
+					if media != nil && media.Schema != nil {
+						_, o.BodyTypeNamed = typeNames[media.Schema.Value]
+						if o.BodyTypeNamed {
+							break
+						}
+					}
+				}
+				if o.BodyType == "" {
+					o.BodyType = "unknown"
+				}
+			}
+			o.ParamsType = toPascalCase(name) + "Params"
+			o.SuccessType = toPascalCase(name) + "Response"
+			o.ErrorType = toPascalCase(name) + "Error"
+			m.Types = append(m.Types, TypeDef{Name: o.ParamsType, Type: paramsTypeScript(o)})
+			m.Types = append(m.Types, TypeDef{Name: o.ErrorType, Type: "{ message: string; code?: string; details?: unknown }"})
+			responseTypeName := toPascalCase(name) + "Response"
+			responseTypeValue := responseType(op, typeNames)
+			if responseTypeValue == "" {
+				responseTypeValue = "void"
+			}
+			o.SuccessType = responseTypeName
+			m.Types = append(m.Types, TypeDef{Name: responseTypeName, Type: responseTypeValue})
+			sort.Slice(o.PathParams, func(i, j int) bool { return o.PathParams[i].Name < o.PathParams[j].Name })
+			sort.Slice(o.QueryParams, func(i, j int) bool { return o.QueryParams[i].Name < o.QueryParams[j].Name })
+			sort.Slice(o.HeaderParams, func(i, j int) bool { return o.HeaderParams[i].Name < o.HeaderParams[j].Name })
+			sort.Slice(o.CookieParams, func(i, j int) bool { return o.CookieParams[i].Name < o.CookieParams[j].Name })
+			m.Operations = append(m.Operations, o)
+		}
+	}
+	sort.Slice(m.Operations, func(i, j int) bool { return m.Operations[i].Name < m.Operations[j].Name })
+	sort.Slice(m.Types, func(i, j int) bool { return m.Types[i].Name < m.Types[j].Name })
+	return m, nil
+}
+
+func schemaTypeName(name string) string {
+	typ := toPascalCase(name)
+	switch typ {
+	case "ApiError", "ApiResult", "RequestConfig", "HttpMethod":
+		return typ + "Model"
+	default:
+		return typ
+	}
+}
+
+func sortedKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
+}
+func refSchema(r *openapi3.SchemaRef) *openapi3.Schema {
+	if r == nil {
+		return nil
+	}
+	return r.Value
+}
+func contentType(c openapi3.Content, names map[*openapi3.Schema]string) string {
+	keys := sortedKeys(c)
+	for _, k := range keys {
+		if c[k] != nil && c[k].Schema != nil {
+			return schemaTypeScript(c[k].Schema.Value, names)
+		}
+	}
+	return ""
+}
+func responseType(op *openapi3.Operation, names map[*openapi3.Schema]string) string {
+	if op.Responses == nil {
+		return ""
+	}
+	keys := sortedKeys(op.Responses.Map())
+	for _, k := range keys {
+		if strings.HasPrefix(k, "2") {
+			r := op.Responses.Value(k)
+			if r != nil && r.Value != nil {
+				if t := contentType(r.Value.Content, names); t != "" {
+					return t
+				}
+			}
+		}
+	}
+	return ""
+}
+func paramsTypeScript(o Operation) string {
+	fields := []string{}
+	add := func(ps []Param) {
+		for _, p := range ps {
+			n := toCamelCase(sanitizeIdent(p.Name))
+			if n == "" {
+				n = "value"
+			}
+			optional := ""
+			if !p.Required {
+				optional = "?"
+			}
+			fields = append(fields, fmt.Sprintf("%s%s: %s", n, optional, p.Type))
+		}
+	}
+	add(o.PathParams)
+	add(o.QueryParams)
+	add(o.HeaderParams)
+	add(o.CookieParams)
+	if len(fields) == 0 {
+		return "Record<string, never>"
+	}
+	return "{ " + strings.Join(fields, "; ") + " }"
+}
+func schemaTypeScript(s *openapi3.Schema, names map[*openapi3.Schema]string) string {
+	if s == nil {
+		return "unknown"
+	}
+	if n := names[s]; n != "" {
+		return n
+	}
+	if len(s.OneOf) > 0 || len(s.AnyOf) > 0 {
+		refs := s.OneOf
+		if len(refs) == 0 {
+			refs = s.AnyOf
+		}
+		ts := []string{}
+		for _, r := range refs {
+			ts = append(ts, schemaTypeScript(refSchema(r), names))
+		}
+		return strings.Join(ts, " | ")
+	}
+	if len(s.AllOf) > 0 {
+		ts := []string{}
+		for _, r := range s.AllOf {
+			ts = append(ts, schemaTypeScript(refSchema(r), names))
+		}
+		return strings.Join(ts, " & ")
+	}
+	if s.Type != nil {
+		for _, t := range *s.Type {
+			if t == "null" {
+				return "null"
+			}
+			switch t {
+			case "string":
+				if len(s.Enum) > 0 {
+					return strings.Join(enumValues(s.Enum), " | ")
+				}
+				return "string"
+			case "integer", "number":
+				return "number"
+			case "boolean":
+				return "boolean"
+			case "array":
+				if s.Items != nil {
+					return "Array<" + schemaTypeScript(s.Items.Value, names) + ">"
+				}
+				return "unknown[]"
+			case "object":
+				fields := []string{}
+				for _, k := range sortedKeys(s.Properties) {
+					p := s.Properties[k]
+					if p == nil {
+						continue
+					}
+					opt := "?"
+					for _, req := range s.Required {
+						if req == k {
+							opt = ""
+							break
+						}
+					}
+					fields = append(fields, toCamelCase(sanitizeIdent(k))+opt+": "+schemaTypeScript(p.Value, names))
+				}
+				if len(fields) == 0 {
+					if s.AdditionalProperties.Schema != nil {
+						return "Record<string, " + schemaTypeScript(s.AdditionalProperties.Schema.Value, names) + ">"
+					}
+					return "Record<string, unknown>"
+				}
+				return "{ " + strings.Join(fields, "; ") + " }"
+			}
+		}
+	}
+	return "unknown"
+}
+func enumValues(v []any) []string {
+	out := []string{}
+	for _, x := range v {
+		out = append(out, fmt.Sprintf("%q", fmt.Sprint(x)))
+	}
+	return out
 }
 
 var nonIdent = regexp.MustCompile(`[^a-zA-Z0-9_]`)

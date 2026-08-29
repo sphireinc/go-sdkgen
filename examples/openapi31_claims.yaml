@@ -1,0 +1,109 @@
+openapi: 3.1.0
+info:
+  title: Claims API
+  version: 1.0.0
+servers:
+  - url: https://api.example.test
+security:
+  - bearerAuth: []
+paths:
+  /v1/me/claims:
+    get:
+      operationId: listMyClaims
+      summary: List claims for the authenticated user
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 100, default: 25 }
+        - name: X-Correlation-ID
+          in: header
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Claims
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Claim' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '404':
+          description: No claims found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '429':
+          description: Rate limited
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+  /v1/claims/{claimId}:
+    post:
+      operationId: submitClaim
+      security: []
+      parameters:
+        - name: claimId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ClaimInput' }
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Claim' }
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Claim:
+      type: object
+      required: [id, status, provenance]
+      properties:
+        id: { type: string, format: uuid, readOnly: true }
+        status: { type: string, enum: [pending, verified, rejected] }
+        provenance: { $ref: '#/components/schemas/Provenance' }
+        evidence: { type: array, items: { type: string, format: uri } }
+        value: { oneOf: [{ type: string }, { type: 'null' }] }
+    ClaimInput:
+      allOf:
+        - $ref: '#/components/schemas/ClaimBase'
+        - type: object
+          required: [value]
+          properties:
+            value: { type: string, writeOnly: true }
+    ClaimBase:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [pending, verified, rejected] }
+    Provenance:
+      type: object
+      required: [source]
+      properties:
+        source: { type: string }
+        extractedAt: { type: string, format: date-time, deprecated: true }
+    ApiError:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        code: { type: string }

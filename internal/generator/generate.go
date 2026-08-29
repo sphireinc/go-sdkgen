@@ -18,12 +18,25 @@ func Generate(cfg Config) error {
 		return fmt.Errorf("unsupported –lang: %s (expected ts or js)", cfg.Lang)
 	}
 
-	spec, err := openapi.LoadSwaggerV2(cfg.InputPath)
-	if err != nil {
-		return err
+	var (
+		model openapi.Model
+		err   error
+	)
+	if b, rerr := os.ReadFile(cfg.InputPath); rerr != nil {
+		return rerr
+	} else if strings.Contains(string(b), `"openapi"`) || strings.Contains(string(b), "openapi:") {
+		spec, lerr := openapi.LoadOpenAPI3(cfg.InputPath, cfg.AllowExternalRefs)
+		if lerr != nil {
+			return lerr
+		}
+		model, err = openapi.BuildModelV3(spec)
+	} else {
+		spec, lerr := openapi.LoadSwaggerV2(cfg.InputPath)
+		if lerr != nil {
+			return lerr
+		}
+		model, err = openapi.BuildModel(spec)
 	}
-
-	model, err := openapi.BuildModel(spec)
 	if err != nil {
 		return err
 	}
@@ -41,6 +54,12 @@ func Generate(cfg Config) error {
 		{"requests.tmpl", "requests." + cfg.Lang},
 		{"sdk.tmpl", "sdk." + cfg.Lang},
 		{"index.tmpl", "index." + cfg.Lang},
+	}
+	if model.Typed && cfg.Lang == "ts" {
+		// OpenAPI 3 typed operations always need the generated schema module.
+		// EmitSchemas remains available for config documentation and future
+		// non-operation modes, while typed output cannot safely omit its types.
+		files = append(files, struct{ template, outName string }{"types.tmpl", "types.ts"})
 	}
 
 	data := map[string]any{
@@ -61,8 +80,8 @@ func Generate(cfg Config) error {
 		}
 	}
 
-	if len(model.Operations) == 0 {
-		return errors.New("no operations found in swagger.json")
+	if len(model.Operations) == 0 && cfg.EmitOperations {
+		return errors.New("no operations found in OpenAPI document")
 	}
 
 	return nil

@@ -4,12 +4,16 @@
  * Do not edit manually.
  */
 
-import { Endpoints, AttachEndpointVariable } from "./routes";
-import { ApiResult, req, RequestConfig } from "./requests";
+import { Endpoints, AttachEndpointVariable } from "./routes.js";
+import { ApiResult, req, RequestConfig } from "./requests.js";
+{{- if .Model.Typed }}
+import * as GeneratedTypes from "./types.js";
+{{- end }}
 
 export type QueryValue = string | number | boolean | null | undefined;
 export type Query = Record<string, QueryValue>;
 export type PathParams = Record<string, string | number>;
+{{- $model := .Model }}
 
 const toQueryString = (query?: Query): string => {
   if (!query) return "";
@@ -28,11 +32,11 @@ const toQueryString = (query?: Query): string => {
  * {{ if .Summary }}{{ .Summary }}{{ else }}{{ .Name }}{{ end }}
  */
 export const {{ .Name }} = async (
-  path?: PathParams,
-  query?: Query,
-  body?: unknown,
+  path{{ if $model.Typed }}?: GeneratedTypes.{{ .ParamsType }}{{ else }}?: PathParams{{ end }},
+  query{{ if $model.Typed }}?: GeneratedTypes.{{ .ParamsType }}{{ else }}?: Query{{ end }},
+  body{{ if and $model.Typed .HasBody }}?: {{ if .BodyTypeNamed }}GeneratedTypes.{{ end }}{{ .BodyType }}{{ else }}?: unknown{{ end }},
   config: RequestConfig = {}
-): Promise<ApiResult> => {
+): Promise<ApiResult{{ if $model.Typed }}<GeneratedTypes.{{ .SuccessType }}, GeneratedTypes.{{ .ErrorType }}>{{ end }}> => {
   const { method, uri } = Endpoints().{{ .Name }};
 
   {{- if gt (len .PathParams) 0 }}
@@ -44,9 +48,9 @@ export const {{ .Name }} = async (
   const withQuery = finalUri + toQueryString(query);
 
   {{- if .HasBody }}
-  return req(method, withQuery, body, config);
+  return req(method, withQuery, body, {{ if $model.Typed }}{ ...config, skipAuth: {{ if .Auth }}false{{ else }}true{{ end }} }{{ else }}config{{ end }});
   {{- else }}
-  return req(method, withQuery, undefined, config);
+  return req(method, withQuery, undefined, {{ if $model.Typed }}{ ...config, skipAuth: {{ if .Auth }}false{{ else }}true{{ end }} }{{ else }}config{{ end }});
   {{- end }}
 };
 
