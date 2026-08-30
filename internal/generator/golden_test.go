@@ -172,6 +172,9 @@ func TestGolden_Examples(t *testing.T) {
 			assertRoutesContainKeys(t, dir1, tc.lang, tc.expectRouteKeys)
 			// 3) SDK functions expose stable signature markers (path/query/body/config)
 			assertSDKHasStableSignature(t, dir1, tc.lang)
+			if strings.ToLower(tc.lang) == "ts" {
+				assertFileContains(t, filepath.Join(dir1, "sdk.ts"), "ReadonlyArray<string | number | boolean>")
+			}
 		})
 	}
 }
@@ -237,6 +240,17 @@ func assertNoSubstringInDir(t *testing.T, dir, bad string) {
 		if bytes.Contains(b, []byte(bad)) {
 			t.Fatalf("found forbidden substring %q in %s", bad, rel)
 		}
+	}
+}
+
+func assertFileContains(t *testing.T, path, want string) {
+	t.Helper()
+	b, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("read %s: %v", path, err)
+	}
+	if !strings.Contains(string(b), want) {
+		t.Fatalf("%s does not contain %q", path, want)
 	}
 }
 
