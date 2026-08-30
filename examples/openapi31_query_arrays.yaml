@@ -1,0 +1,33 @@
+openapi: 3.1.0
+info:
+  title: Query Arrays API
+  version: 1.0.0
+paths:
+  /widgets:
+    get:
+      operationId: listWidgets
+      parameters:
+        - name: label
+          in: query
+          schema:
+            type: array
+            items:
+              type: string
+        - name: priority
+          in: query
+          schema:
+            type: array
+            items:
+              type: integer
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      type: string

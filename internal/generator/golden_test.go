@@ -113,6 +113,20 @@ func TestGolden_Examples(t *testing.T) {
 				"createBooking",
 			},
 		},
+		{
+			name:     "query-arrays-ts",
+			input:    relToRepo(t, "examples/openapi31_query_arrays.yaml"),
+			lang:     "ts",
+			sdkName:  "QueryArraysSDK",
+			expectRouteKeys: []string{"listWidgets"},
+		},
+		{
+			name:     "query-arrays-js",
+			input:    relToRepo(t, "examples/openapi31_query_arrays.yaml"),
+			lang:     "js",
+			sdkName:  "QueryArraysSDK",
+			expectRouteKeys: []string{"listWidgets"},
+		},
 	}
 
 	for _, tc := range tests {

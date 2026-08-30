@@ -63,6 +63,8 @@ golden: build
 	@./$(BINARY) --input ./examples/swagger_dog_parlor.json --out ./internal/generator/testdata/golden/dog-parlor-js --lang js --name DogParlorSDK
 	@./$(BINARY) --input ./examples/swagger_customer_booking.json --out ./internal/generator/testdata/golden/customer-booking-ts --lang ts --name CustomerBookingSDK
 	@./$(BINARY) --input ./examples/swagger_customer_booking.json --out ./internal/generator/testdata/golden/customer-booking-js --lang js --name CustomerBookingSDK
+	@./$(BINARY) --input ./examples/openapi31_query_arrays.yaml --out ./internal/generator/testdata/golden/query-arrays-ts --lang ts --name QueryArraysSDK
+	@./$(BINARY) --input ./examples/openapi31_query_arrays.yaml --out ./internal/generator/testdata/golden/query-arrays-js --lang js --name QueryArraysSDK
 
 	@echo "✅ Golden files updated."
 

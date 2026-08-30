@@ -11,6 +11,9 @@ import { axios as dogAxios } from "../../internal/generator/testdata/golden/dog-
 import * as booking from "../../internal/generator/testdata/golden/customer-booking-js/index.js";
 import { axios as bookingAxios } from "../../internal/generator/testdata/golden/customer-booking-js/requests.js";
 
+import * as queryArrays from "../../internal/generator/testdata/golden/query-arrays-js/index.js";
+import { axios as queryArraysAxios } from "../../internal/generator/testdata/golden/query-arrays-js/requests.js";
+
 function findEndpointBy(method, uri, sdkModule) {
     const routes = sdkModule.Endpoints();
     for (const [name, ep] of Object.entries(routes)) {
@@ -117,6 +120,27 @@ test("customer-booking-js: POST /customers/{customerId}/bookings mocked", async 
 
     assert.equal(res.success, true);
     assert.equal(res.data.id, "b1");
+
+    mock.restore();
+});
+
+test("query-arrays-js: repeated query values are serialized as repeated keys", async () => {
+    queryArrays.setBaseUrl("https://example.test");
+
+    const found = findEndpointBy("GET", "/widgets", queryArrays);
+    assert.ok(found, "Expected GET /widgets");
+    const fn = queryArrays[found.name];
+    assert.equal(typeof fn, "function");
+
+    const mock = new MockAdapter(queryArraysAxios);
+    mock.onGet("https://example.test/widgets?label=blue&label=large&priority=1&priority=2").reply(200, {
+        items: ["w1"],
+    });
+    addUnmatchedFallback(mock, "query-arrays");
+
+    const res = await fn(undefined, { label: ["blue", "large"], priority: [1, 2] }, undefined, { __debug: true });
+    assert.equal(res.success, true);
+    assert.deepEqual(res.data, { items: ["w1"] });
 
     mock.restore();
 });
