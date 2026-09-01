@@ -55,7 +55,7 @@ export const {{ .Name }} = async (
   const withQuery = finalUri + toQueryString(query);
 
   {{- if .HasBody }}
-  return req(method, withQuery, body, {{ if $model.Typed }}{ ...config, skipAuth: {{ if .Auth }}false{{ else }}true{{ end }} }{{ else }}config{{ end }});
+  return req(method, withQuery, body, {{ if $model.Typed }}{ ...config, skipAuth: {{ if .Auth }}false{{ else }}true{{ end }}, multipart: {{ if .Multipart }}true{{ else }}false{{ end }} }{{ else }}config{{ end }});
   {{- else }}
   return req(method, withQuery, undefined, {{ if $model.Typed }}{ ...config, skipAuth: {{ if .Auth }}false{{ else }}true{{ end }} }{{ else }}config{{ end }});
   {{- end }}

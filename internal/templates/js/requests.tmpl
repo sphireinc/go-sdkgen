@@ -49,7 +49,7 @@ export const req = async (
     ...config,
     method,
     headers: {
-      "Content-Type": "application/json",
+      ...(config.multipart ? {} : { "Content-Type": "application/json" }),
       ...headers,
       ...(config.headers || {}),
       {{- if eq .Cfg.AuthMode "bearer" }}

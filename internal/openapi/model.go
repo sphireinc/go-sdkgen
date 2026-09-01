@@ -28,6 +28,7 @@ type Operation struct {
 	PathParams    []Param
 	QueryParams   []Param
 	HasBody       bool
+	Multipart     bool
 	Summary       string
 	Description   string
 	ParamsType    string
@@ -143,6 +144,12 @@ func BuildModelV3(spec *openapi3.T) (Model, error) {
 			}
 			if op.RequestBody != nil && op.RequestBody.Value != nil {
 				o.HasBody = true
+				for mediaType := range op.RequestBody.Value.Content {
+					if strings.HasPrefix(strings.ToLower(mediaType), "multipart/") {
+						o.Multipart = true
+						break
+					}
+				}
 				o.BodyType = contentType(op.RequestBody.Value.Content, typeNames)
 				for _, media := range op.RequestBody.Value.Content {
 					if media != nil && media.Schema != nil {
@@ -265,6 +272,9 @@ func schemaTypeScript(s *openapi3.Schema, names map[*openapi3.Schema]string) str
 	}
 	if s.Const != nil {
 		return constTypeScript(s.Const)
+	}
+	if strings.EqualFold(s.Format, "binary") {
+		return "Blob"
 	}
 	if n := names[s]; n != "" {
 		return n

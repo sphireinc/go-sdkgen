@@ -51,7 +51,7 @@ export const {{ .Name }} = async (
     method,
     withQuery,
     {{- if .HasBody }}body{{ else }}undefined{{ end }},
-    config
+    { ...config, multipart: {{ if .Multipart }}true{{ else }}false{{ end }} }
   );
 };
 

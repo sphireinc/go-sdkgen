@@ -20,6 +20,7 @@ export type HttpMethod =
 export interface RequestConfig extends AxiosRequestConfig {
   headers?: Record<string, string>;
   skipAuth?: boolean;
+  multipart?: boolean;
 }
 
 export interface ApiError { message: string; code?: string; details?: unknown; }
@@ -76,7 +77,7 @@ export const req = async <T = any>(
     ...config,
     method,
     headers: {
-      "Content-Type": "application/json",
+      ...(config.multipart ? {} : { "Content-Type": "application/json" }),
       ...headers,
       ...(config.headers ?? {}),
       ...(requestIdProvider?.() ? { "X-Request-ID": requestIdProvider() } : {}),
