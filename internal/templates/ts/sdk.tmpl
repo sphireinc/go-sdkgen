@@ -27,7 +27,7 @@ const toQueryString = (query?: Query): string => {
       }
       continue;
     }
-    params.append(k, String(v));
+    params.append(k.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`), String(v));
   }
   const s = params.toString();
   return s ? `?${s}` : "";

@@ -21,6 +21,16 @@ export const setTokenProvider = (fn) => {
   tokenProvider = fn;
 };
 
+const wireKey = (key) => key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+const clientKey = (key) => key.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+const mapKeys = (value, convert) => {
+  if (Array.isArray(value)) return value.map((item) => mapKeys(item, convert));
+  if (!value || typeof value !== "object" || (typeof Blob !== "undefined" && value instanceof Blob) || value instanceof Date) return value;
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [convert(key), mapKeys(item, convert)]));
+};
+const toWire = (value) => mapKeys(value, wireKey);
+const fromWire = (value) => mapKeys(value, clientKey);
+
 const multipartData = (data) => {
   if (!data || typeof FormData === "undefined" || data instanceof FormData || typeof data !== "object") return data;
   const form = new FormData();
@@ -70,7 +80,7 @@ export const req = async (
       {{- end }}
     },
   };
-  const requestData = config.multipart ? multipartData(data) : data;
+  const requestData = config.multipart ? multipartData(data) : toWire(data);
 
   try {
     let res;
@@ -102,7 +112,7 @@ export const req = async (
 
     return {
       success: true,
-      data: res.data,
+      data: fromWire(res.data),
       status: res.status,
     };
   } catch (err) {

@@ -15,11 +15,11 @@ const toQueryString = (query) => {
     if (Array.isArray(v)) {
       for (const item of v) {
         if (item === undefined || item === null) continue;
-        params.append(k, String(item));
+        params.append(k.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`), String(item));
       }
       continue;
     }
-    params.append(k, String(v));
+    params.append(k.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`), String(v));
   }
   const s = params.toString();
   return s ? `?${s}` : "";

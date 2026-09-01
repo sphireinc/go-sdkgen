@@ -55,6 +55,16 @@ export const setErrorNormalizer = (fn: ((error: unknown, status?: number) => Api
   errorNormalizer = fn;
 };
 
+const wireKey = (key: string): string => key.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
+const clientKey = (key: string): string => key.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
+const mapKeys = (value: unknown, convert: (key: string) => string): unknown => {
+  if (Array.isArray(value)) return value.map((item) => mapKeys(item, convert));
+  if (!value || typeof value !== "object" || (typeof Blob !== "undefined" && value instanceof Blob) || value instanceof Date) return value;
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>).map(([key, item]) => [convert(key), mapKeys(item, convert)]));
+};
+const toWire = <T>(value: T): T => mapKeys(value, wireKey) as T;
+const fromWire = <T>(value: T): T => mapKeys(value, clientKey) as T;
+
 const multipartData = (data: unknown): FormData | unknown => {
   if (!data || typeof FormData === "undefined" || data instanceof FormData) return data;
   if (typeof data !== "object") return data;
@@ -98,7 +108,7 @@ export const req = async <T = any>(
       {{- end }}
     },
   };
-  const requestData = config.multipart ? multipartData(data) : data;
+  const requestData = config.multipart ? multipartData(data) : toWire(data);
 
   try {
     let res: AxiosResponse<T>;
@@ -129,7 +139,7 @@ export const req = async <T = any>(
       return { success: false, error: { message: `Unsupported method: ${method}` } };
     }
 
-    return { success: true, data: res.data, status: res.status };
+    return { success: true, data: fromWire(res.data), status: res.status };
   } catch (err: any) {
     let status: number | undefined = undefined;
     let message = "Unknown error";
