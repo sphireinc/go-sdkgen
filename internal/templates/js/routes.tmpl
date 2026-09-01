@@ -17,6 +17,7 @@ const routes = {
 export const Endpoints = () => routes;
 
 const placeholderPattern = /\{([^}]+)\}/g;
+const clientVariableName = (name) => name.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
 
 export const AttachEndpointVariable = (url, variables) => {
   if (typeof variables !== "object" || variables === null) {
@@ -30,6 +31,8 @@ export const AttachEndpointVariable = (url, variables) => {
   return url.replace(placeholderPattern, (_, variableName) =>
     variableValues[variableName] !== undefined
       ? String(variableValues[variableName])
+      : variableValues[clientVariableName(variableName)] !== undefined
+      ? String(variableValues[clientVariableName(variableName)])
       : ""
   );
 };

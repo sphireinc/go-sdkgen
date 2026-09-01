@@ -28,6 +28,7 @@ const routes: EndpointsMap = {
 export const Endpoints = (): EndpointsMap => routes;
 
 const placeholderPattern = /\{([^}]+)\}/g;
+const clientVariableName = (name: string): string => name.replace(/_([a-z])/g, (_, letter: string) => letter.toUpperCase());
 
 /**
  * Replaces variable placeholders in a URI with actual values.
@@ -50,6 +51,8 @@ export const AttachEndpointVariable = (
   return url.replace(placeholderPattern, (_, variableName) =>
     variableValues[variableName] !== undefined
       ? String(variableValues[variableName])
+      : variableValues[clientVariableName(variableName)] !== undefined
+      ? String(variableValues[clientVariableName(variableName)])
       : ""
   );
 };
