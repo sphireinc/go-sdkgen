@@ -55,6 +55,18 @@ export const setErrorNormalizer = (fn: ((error: unknown, status?: number) => Api
   errorNormalizer = fn;
 };
 
+const multipartData = (data: unknown): FormData | unknown => {
+  if (!data || typeof FormData === "undefined" || data instanceof FormData) return data;
+  if (typeof data !== "object") return data;
+  const form = new FormData();
+  for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+    if (value === undefined || value === null) continue;
+    if (value instanceof Blob || (typeof File !== "undefined" && value instanceof File)) form.append(key, value as Blob);
+    else form.append(key, String(value));
+  }
+  return form;
+};
+
 const getTokenSafe = (): string => {
   if (!tokenProvider) return "";
   try {
@@ -86,6 +98,7 @@ export const req = async <T = any>(
       {{- end }}
     },
   };
+  const requestData = config.multipart ? multipartData(data) : data;
 
   try {
     let res: AxiosResponse<T>;
@@ -95,16 +108,16 @@ export const req = async <T = any>(
         res = await axios.get<T>(url, cfg);
         break;
       case "POST":
-        res = await axios.post<T>(url, data, cfg);
+        res = await axios.post<T>(url, requestData, cfg);
         break;
       case "PUT":
-        res = await axios.put<T>(url, data, cfg);
+        res = await axios.put<T>(url, requestData, cfg);
         break;
       case "DELETE":
         res = await axios.delete<T>(url, cfg);
         break;
       case "PATCH":
-        res = await axios.patch<T>(url, data, cfg);
+        res = await axios.patch<T>(url, requestData, cfg);
         break;
       case "HEAD":
         res = await axios.head<T>(url, cfg);

@@ -21,6 +21,17 @@ export const setTokenProvider = (fn) => {
   tokenProvider = fn;
 };
 
+const multipartData = (data) => {
+  if (!data || typeof FormData === "undefined" || data instanceof FormData || typeof data !== "object") return data;
+  const form = new FormData();
+  for (const [key, value] of Object.entries(data)) {
+    if (value === undefined || value === null) continue;
+    if (typeof Blob !== "undefined" && value instanceof Blob) form.append(key, value);
+    else form.append(key, String(value));
+  }
+  return form;
+};
+
 const getTokenSafe = () => {
   if (!tokenProvider) return "";
   try {
@@ -59,6 +70,7 @@ export const req = async (
       {{- end }}
     },
   };
+  const requestData = config.multipart ? multipartData(data) : data;
 
   try {
     let res;
@@ -67,16 +79,16 @@ export const req = async (
         res = await axios.get(url, cfg);
         break;
       case "POST":
-        res = await axios.post(url, data, cfg);
+        res = await axios.post(url, requestData, cfg);
         break;
       case "PUT":
-        res = await axios.put(url, data, cfg);
+        res = await axios.put(url, requestData, cfg);
         break;
       case "DELETE":
         res = await axios.delete(url, cfg);
         break;
       case "PATCH":
-        res = await axios.patch(url, data, cfg);
+        res = await axios.patch(url, requestData, cfg);
         break;
       case "HEAD":
         res = await axios.head(url, cfg);
