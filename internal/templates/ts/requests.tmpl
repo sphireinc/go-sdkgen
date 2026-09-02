@@ -71,8 +71,9 @@ const multipartData = (data: unknown): FormData | unknown => {
   const form = new FormData();
   for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
     if (value === undefined || value === null) continue;
-    if (value instanceof Blob || (typeof File !== "undefined" && value instanceof File)) form.append(key, value as Blob);
-    else form.append(key, String(value));
+    const wire = wireKey(key);
+    if (value instanceof Blob || (typeof File !== "undefined" && value instanceof File)) form.append(wire, value as Blob);
+    else form.append(wire, String(value));
   }
   return form;
 };
